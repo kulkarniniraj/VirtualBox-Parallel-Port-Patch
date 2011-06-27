@@ -1,0 +1,44 @@
+Created for VirtualBox 3.2.12 OSE
+
+Installation instruction : 
+==========================
+
+Backend : 
+---------
+1.Copy files mqueue.h msg.cpp msg.h to <VBox source dir>/src/VBox/Devices/Parallel/
+2.Apply Patch vbox_patch to whole source directory
+3.Compile VirtualBox
+
+Frontend :
+----------
+1.Make sure you have installed python-posix-ipc package (http://semanchuk.com/philip/posix_ipc/)
+
+Running Instructions :
+======================
+
+1.Always run frontend before starting virtualbox by $python front.py
+2.Now run VirtualBox
+3.Whenever a new instance of machine is started, it may probe for parallel port. 
+  Any read on parallel port data,status,control port is redirected to python frontend.
+
+Details :
+=========
+1.Uses posix style message queue for communication between virtualbox backend and python   frontend.
+2.Queue name is /my_send_q and created by frontend.
+3.All reads redirected to fronend for input.
+4.All Writes to parallel port printed to fronend terminal.
+
+Limitations :
+=============
+1.Only supports standard parallel port.
+2.Extended parallel ports not supported.
+3.Interrupts not supported.
+4.Concurrency(Multiple parallel ports) not supported.
+5.Tested only for MS-DOS.
+
+Send Comments, Suggestions and Bugs at :
+========================================
+kulkarniniraj14@gmail.com
+
+Niraj Kulkarni
+

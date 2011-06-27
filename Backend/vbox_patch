@@ -1,0 +1,686 @@
+diff -ur ./VBox/Devices/Builtins.cpp /home/niraj/Downloads/VirtualBox-3.2.12_OSE/src//VBox/Devices/Builtins.cpp
+--- ./VBox/Devices/Builtins.cpp	2010-12-01 22:39:14.000000000 +0530
++++ /home/niraj/Downloads/VirtualBox-3.2.12_OSE/src//VBox/Devices/Builtins.cpp	2011-04-24 10:49:37.256798685 +0530
+@@ -29,7 +29,8 @@
+ #include <iprt/assert.h>
+ 
+ #include "Builtins.h"
+-
++#include <stdio.h>
++#include <time.h>
+ 
+ /*******************************************************************************
+ *   Global Variables                                                           *
+@@ -42,6 +43,26 @@
+     NULL,
+ };
+ 
++void myLog(char *str)
++{
++	FILE *fp=fopen("/home/niraj/Documents/vbox_compile.txt","a+");
++	time_t cur;
++	time(&cur);
++	char buf[60];
++	strftime(buf, 59, "%d/%m/%y %H:%M:%S ",localtime(&cur));
++	fprintf(fp,"%s %s\n",buf,str);
++	fclose(fp);
++}
++void myLog(char *str,unsigned int val)
++{
++	FILE *fp=fopen("/home/niraj/Documents/vbox_compile.txt","a+");
++	time_t cur;
++	time(&cur);
++	char buf[60];
++	strftime(buf, 59, "%d/%m/%y %H:%M:%S ",localtime(&cur));
++	fprintf(fp,"%s %s %X\n",buf,str,val);
++	fclose(fp);
++}
+ 
+ /**
+  * Register builtin devices.
+@@ -171,7 +192,7 @@
+     if (RT_FAILURE(rc))
+         return rc;
+ #endif
+-
++	//pCallbacks->pfnRegister(pCallbacks, &g_DeviceSample);
+     return VINF_SUCCESS;
+ }
+ 
+@@ -187,7 +208,9 @@
+ {
+     LogFlow(("VBoxDriversRegister: u32Version=%#x\n", u32Version));
+     AssertReleaseMsg(u32Version == VBOX_VERSION, ("u32Version=%#x VBOX_VERSION=%#x\n", u32Version, VBOX_VERSION));
+-
++	
++	myLog("in builtins 1");
++	
+     int rc = pCallbacks->pfnRegister(pCallbacks, &g_DrvMouseQueue);
+     if (RT_FAILURE(rc))
+         return rc;
+@@ -267,8 +290,9 @@
+     if (RT_FAILURE(rc))
+         return rc;
+ #endif
+-
++myLog("before paralel");
+ #if defined(RT_OS_LINUX)
++	myLog("paralel");
+     rc = pCallbacks->pfnRegister(pCallbacks, &g_DrvHostParallel);
+     if (RT_FAILURE(rc))
+         return rc;
+@@ -298,7 +322,7 @@
+     if (RT_FAILURE(rc))
+         return rc;
+ #endif
+-
++	myLog("finished");
+     return VINF_SUCCESS;
+ }
+ 
+diff -ur ./VBox/Devices/Makefile.kmk /home/niraj/Downloads/VirtualBox-3.2.12_OSE/src//VBox/Devices/Makefile.kmk
+--- ./VBox/Devices/Makefile.kmk	2010-12-01 22:39:16.000000000 +0530
++++ /home/niraj/Downloads/VirtualBox-3.2.12_OSE/src//VBox/Devices/Makefile.kmk	2011-04-07 09:02:12.055652897 +0530
+@@ -316,7 +316,7 @@
+ 	Storage/fdc.c \
+ 	Serial/DevSerial.cpp \
+ 	Parallel/DevParallel.cpp
+-
++	
+ ifdef VBOX_DYNAMIC_NET_ATTACH
+  DevicesR3_DEFS        += VBOX_DYNAMIC_NET_ATTACH
+ endif
+@@ -556,7 +556,7 @@
+  	Network/DevPCNet.cpp \
+  	Serial/DevSerial.cpp \
+  	Parallel/DevParallel.cpp
+-
++	
+  ifdef VBOX_DYNAMIC_NET_ATTACH
+   VBoxDDGC_DEFS        += VBOX_DYNAMIC_NET_ATTACH
+  endif
+@@ -978,6 +978,7 @@
+ 	Network/DrvTAP.cpp \
+ 	Audio/ossaudio.c \
+ 	Parallel/DrvHostParallel.cpp \
++	Parallel/msg.cpp \
+ 	Serial/DrvHostSerial.cpp
+ 
+ ifeq ($(KBUILD_TARGET),os2)
+diff -ur ./VBox/Devices/Parallel/DevParallel.cpp /home/niraj/Downloads/VirtualBox-3.2.12_OSE/src//VBox/Devices/Parallel/DevParallel.cpp
+--- ./VBox/Devices/Parallel/DevParallel.cpp	2010-12-01 22:39:21.000000000 +0530
++++ /home/niraj/Downloads/VirtualBox-3.2.12_OSE/src//VBox/Devices/Parallel/DevParallel.cpp	2011-01-22 14:08:15.227989188 +0530
+@@ -30,7 +30,7 @@
+ #include <iprt/critsect.h>
+ 
+ #include "../Builtins.h"
+-
++#include "../myheader.h"
+ 
+ /*******************************************************************************
+ *   Defined Constants And Macros                                               *
+@@ -689,7 +689,7 @@
+ 
+     Assert(iInstance < 4);
+     PDMDEV_CHECK_VERSIONS_RETURN(pDevIns);
+-
++	myLog("in parallel construct");
+     /*
+      * Init the data so parallelDestruct doesn't choke.
+      */
+@@ -817,6 +817,7 @@
+     rc = PDMDevHlpDriverAttach(pDevIns, 0, &pThis->IBase, &pThis->pDrvBase, "Parallel Host");
+     if (RT_SUCCESS(rc))
+     {
++		myLog("in parallel construct: rt_success");
+         pThis->pDrvHostParallelConnector = PDMIBASE_QUERY_INTERFACE(pThis->pDrvBase, PDMIHOSTPARALLELCONNECTOR);
+         AssertMsgReturn(pThis->pDrvHostParallelConnector,
+                         ("Configuration error: instance %d has no host parallel interface!\n", iInstance),
+@@ -825,12 +826,14 @@
+     }
+     else if (rc == VERR_PDM_NO_ATTACHED_DRIVER)
+     {
++		myLog("in parallel construct: VERR_PDM_NO_ATTACHED_DRIVER");
+         pThis->pDrvBase = NULL;
+         pThis->pDrvHostParallelConnector = NULL;
+         LogRel(("Parallel%d: no unit\n", iInstance));
+     }
+     else
+     {
++		myLog("in parallel construct : driver registration else part");
+         AssertMsgFailed(("Parallel%d: Failed to attach to host driver. rc=%Rrc\n", iInstance, rc));
+         return PDMDevHlpVMSetError(pDevIns, rc, RT_SRC_POS,
+                                    N_("Parallel device %d cannot attach to host driver"), iInstance);
+diff -ur ./VBox/Devices/Parallel/DrvHostParallel.cpp /home/niraj/Downloads/VirtualBox-3.2.12_OSE/src//VBox/Devices/Parallel/DrvHostParallel.cpp
+--- ./VBox/Devices/Parallel/DrvHostParallel.cpp	2010-12-01 22:39:21.000000000 +0530
++++ /home/niraj/Downloads/VirtualBox-3.2.12_OSE/src//VBox/Devices/Parallel/DrvHostParallel.cpp	2011-04-24 10:43:49.653834167 +0530
+@@ -43,7 +43,10 @@
+ #endif
+ 
+ #include "Builtins.h"
+-
++#include "msg.h"
++#include "../myheader.h"
++struct message mymsg;
++int myflag;
+ 
+ /*******************************************************************************
+ *   Structures and Typedefs                                                    *
+@@ -101,7 +104,16 @@
+ 
+     LogFlow(("%s: pvBuf=%#p cbWrite=%d\n", __FUNCTION__, pvBuf, *cbWrite));
+ 
+-    ioctl(pThis->FileDevice, PPWDATA, pBuffer);
++    //ioctl(pThis->FileDevice, PPWDATA, pBuffer);
++    char mybuff[]="Parallel Port Driver Write : Value is ";
++    myLog(mybuff,*pBuffer);
++    if(!myflag)
++    {    
++		msg_write(WRITE,DATA,*pBuffer);
++	}
++    //mymsg=msg_read();
++    //*pBuffer=mymsg.value;
++    //myLog(mybuff);
+     *cbWrite = 1;
+ 
+     return VINF_SUCCESS;
+@@ -114,7 +126,13 @@
+ 
+     LogFlow(("%s: pvBuf=%#p cbRead=%d\n", __FUNCTION__, pvBuf, cbRead));
+ 
+-    ioctl(pThis->FileDevice, PPRDATA, pBuffer);
++    //ioctl(pThis->FileDevice, PPRDATA, pBuffer);
++    if(!myflag)
++    {
++		msg_write(READ,DATA,0);
++		mymsg=msg_read();
++		*pBuffer=mymsg.value;
++	}
+     *cbRead = 1;
+ 
+     return VINF_SUCCESS;
+@@ -150,7 +168,11 @@
+ 
+     LogFlow(("%s: fReg=%d\n", __FUNCTION__, fReg));
+ 
+-    ioctl(pThis->FileDevice, PPWCONTROL, &fReg);
++    //ioctl(pThis->FileDevice, PPWCONTROL, &fReg);
++    if(!myflag)
++    {    
++		msg_write(WRITE,CTRL,fReg);
++	}
+ 
+     return VINF_SUCCESS;
+ }
+@@ -160,12 +182,17 @@
+     PDRVHOSTPARALLEL pThis = PDMIHOSTPARALLELCONNECTOR_2_DRVHOSTPARALLEL(pInterface);
+     uint8_t fReg;
+ 
+-    ioctl(pThis->FileDevice, PPRCONTROL, &fReg);
++    //ioctl(pThis->FileDevice, PPRCONTROL, &fReg);
+ 
+     LogFlow(("%s: fReg=%d\n", __FUNCTION__, fReg));
+ 
+-    *pfReg = fReg;
+-
++    //*pfReg = fReg;
++    if(!myflag)
++    {
++		msg_write(READ,CTRL,0);
++		mymsg=msg_read();
++		*pfReg=mymsg.value;
++	}
+     return VINF_SUCCESS;
+ }
+ 
+@@ -174,12 +201,17 @@
+     PDRVHOSTPARALLEL pThis = PDMIHOSTPARALLELCONNECTOR_2_DRVHOSTPARALLEL(pInterface);
+     uint8_t fReg;
+ 
+-    ioctl(pThis->FileDevice, PPRSTATUS, &fReg);
++    //ioctl(pThis->FileDevice, PPRSTATUS, &fReg);
+ 
+     LogFlow(("%s: fReg=%d\n", __FUNCTION__, fReg));
+ 
+-    *pfReg = fReg;
+-
++    //*pfReg = fReg;
++    if(!myflag)
++    {	
++		msg_write(READ,STAT,0);
++		mymsg=msg_read();
++		*pfReg=mymsg.value;
++	}
+     return VINF_SUCCESS;
+ }
+ 
+@@ -257,7 +289,7 @@
+     LogFlow(("%s: iInstance=%d\n", __FUNCTION__, pDrvIns->iInstance));
+     PDMDRV_CHECK_VERSIONS_RETURN_VOID(pDrvIns);
+ 
+-    ioctl(pThis->FileDevice, PPRELEASE);
++    //ioctl(pThis->FileDevice, PPRELEASE);
+ 
+     if (pThis->WakeupPipeW != NIL_RTFILE)
+     {
+@@ -277,6 +309,8 @@
+         AssertRC(rc);
+         pThis->FileDevice = NIL_RTFILE;
+     }
++    if(!myflag)
++		finish();
+ }
+ 
+ /**
+@@ -289,7 +323,7 @@
+     PDRVHOSTPARALLEL pThis = PDMINS_2_DATA(pDrvIns, PDRVHOSTPARALLEL);
+     LogFlow(("%s: iInstance=%d\n", __FUNCTION__, pDrvIns->iInstance));
+     PDMDRV_CHECK_VERSIONS_RETURN(pDrvIns);
+-
++	//myLog("in Parallel Driver Construct");
+     /*
+      * Validate the config.
+      */
+@@ -311,45 +345,50 @@
+     pThis->IHostParallelConnector.pfnReadControl   = drvHostParallelReadControl;
+     pThis->IHostParallelConnector.pfnReadStatus    = drvHostParallelReadStatus;
+ 
++	myLog("In parallel Construct");
+     /*
+      * Query configuration.
+      */
+-    /* Device */
++    /* Device *//*
+     int rc = CFGMR3QueryStringAlloc(pCfg, "DevicePath", &pThis->pszDevicePath);
++    if(rc==VERR_CFGM_VALUE_NOT_FOUND)
++	{
++		myLog("Parallel Driver Construct : Error found");
++	}
+     if (RT_FAILURE(rc))
+     {
+         AssertMsgFailed(("Configuration error: query for \"DevicePath\" string returned %Rra.\n", rc));
+         return rc;
+     }
+-
++	*/
+     /*
+      * Open the device
+-     */
++     *//*
+     rc = RTFileOpen(&pThis->FileDevice, pThis->pszDevicePath, RTFILE_O_READWRITE | RTFILE_O_OPEN | RTFILE_O_DENY_NONE);
+     if (RT_FAILURE(rc))
+         return PDMDrvHlpVMSetError(pDrvIns, rc, RT_SRC_POS, N_("Parallel#%d could not open '%s'"),
+                                    pDrvIns->iInstance, pThis->pszDevicePath);
+-
++	*/
+     /*
+      * Try to get exclusive access to parallel port
+-     */
++     *//*
+     rc = ioctl(pThis->FileDevice, PPEXCL);
+     if (rc < 0)
+         return PDMDrvHlpVMSetError(pDrvIns, RTErrConvertFromErrno(errno), RT_SRC_POS,
+                                    N_("Parallel#%d could not get exclusive access for parallel port '%s'"
+                                       "Be sure that no other process or driver accesses this port"),
+                                    pDrvIns->iInstance, pThis->pszDevicePath);
+-
++	*/
+     /*
+      * Claim the parallel port
+-     */
++     *//*
+     rc = ioctl(pThis->FileDevice, PPCLAIM);
+     if (rc < 0)
+         return PDMDrvHlpVMSetError(pDrvIns, RTErrConvertFromErrno(errno), RT_SRC_POS,
+                                    N_("Parallel#%d could not claim parallel port '%s'"
+                                       "Be sure that no other process or driver accesses this port"),
+                                    pDrvIns->iInstance, pThis->pszDevicePath);
+-
++	*/
+     /*
+      * Get the IHostParallelPort interface of the above driver/device.
+      */
+@@ -360,7 +399,7 @@
+ 
+     /*
+      * Create wakeup pipe.
+-     */
++     *//*
+     int aFDs[2];
+     if (pipe(aFDs) != 0)
+     {
+@@ -370,15 +409,16 @@
+     }
+     pThis->WakeupPipeR = aFDs[0];
+     pThis->WakeupPipeW = aFDs[1];
+-
++	*/
+     /*
+      * Start waiting for interrupts.
+-     */
++     *//*
+     rc = PDMDrvHlpThreadCreate(pDrvIns, &pThis->pMonitorThread, pThis, drvHostParallelMonitorThread, drvHostParallelWakeupMonitorThread, 0,
+                                RTTHREADTYPE_IO, "ParMon");
+     if (RT_FAILURE(rc))
+         return PDMDrvHlpVMSetError(pDrvIns, rc, RT_SRC_POS, N_("HostParallel#%d cannot create monitor thread"), pDrvIns->iInstance);
+-
++	*/
++	myflag=init();
+     return VINF_SUCCESS;
+ }
+ 
+diff -ur ./VBox/Devices/Samples/VBoxSampleDevice.cpp /home/niraj/Downloads/VirtualBox-3.2.12_OSE/src//VBox/Devices/Samples/VBoxSampleDevice.cpp
+--- ./VBox/Devices/Samples/VBoxSampleDevice.cpp	2010-12-01 22:39:21.000000000 +0530
++++ /home/niraj/Downloads/VirtualBox-3.2.12_OSE/src//VBox/Devices/Samples/VBoxSampleDevice.cpp	2011-01-15 19:01:25.735955012 +0530
+@@ -26,8 +26,7 @@
+ #include <VBox/log.h>
+ 
+ #include <iprt/assert.h>
+-
+-
++#include "../myheader.h"
+ /*******************************************************************************
+ *   Structures and Typedefs                                                    *
+ *******************************************************************************/
+diff -ur ./VBox/Devices/Serial/DevSerial.cpp /home/niraj/Downloads/VirtualBox-3.2.12_OSE/src//VBox/Devices/Serial/DevSerial.cpp
+--- ./VBox/Devices/Serial/DevSerial.cpp	2010-12-01 22:39:21.000000000 +0530
++++ /home/niraj/Downloads/VirtualBox-3.2.12_OSE/src//VBox/Devices/Serial/DevSerial.cpp	2011-01-22 13:33:44.065483461 +0530
+@@ -55,7 +55,7 @@
+ #include <iprt/critsect.h>
+ 
+ #include "../Builtins.h"
+-
++#include "../myheader.h"
+ #undef VBOX_SERIAL_PCI /* The PCI variant has lots of problems: wrong IRQ line and wrong IO base assigned. */
+ 
+ #ifdef VBOX_SERIAL_PCI
+@@ -1120,7 +1120,7 @@
+ 
+     Assert(iInstance < 4);
+     PDMDEV_CHECK_VERSIONS_RETURN(pDevIns);
+-
++	
+     /*
+      * Initialize the instance data.
+      * (Do this early or the destructor might choke on something!)
+@@ -1199,7 +1199,8 @@
+                                 N_("Configuration error: Failed to get the \"IRQ\" value"));
+ 
+     rc = CFGMR3QueryU16(pCfg, "IOBase", &io_base);
+-    if (rc == VERR_CFGM_VALUE_NOT_FOUND)
++    myLog("in serial construct port no :",io_base);
++	if (rc == VERR_CFGM_VALUE_NOT_FOUND)
+     {
+         if (iInstance == 0)
+             io_base = 0x3f8;
+@@ -1307,6 +1308,7 @@
+     rc = PDMDevHlpDriverAttach(pDevIns, 0, &pThis->IBase, &pThis->pDrvBase, "Serial Char");
+     if (RT_SUCCESS(rc))
+     {
++		myLog("in serial construct: rt_success");
+         pThis->pDrvChar = PDMIBASE_QUERY_INTERFACE(pThis->pDrvBase, PDMICHARCONNECTOR);
+         if (!pThis->pDrvChar)
+         {
+@@ -1317,12 +1319,14 @@
+     }
+     else if (rc == VERR_PDM_NO_ATTACHED_DRIVER)
+     {
++		myLog("in serial construct: VERR_PDM_NO_ATTACHED_DRIVER");
+         pThis->pDrvBase = NULL;
+         pThis->pDrvChar = NULL;
+         LogRel(("Serial%d: no unit\n", iInstance));
+     }
+     else
+     {
++		myLog("in serial construct : driver registration else part");
+         AssertLogRelMsgFailed(("Serial%d: Failed to attach to char driver. rc=%Rrc\n", iInstance, rc));
+         /* Don't call VMSetError here as we assume that the driver already set an appropriate error */
+         return rc;
+diff -ur ./VBox/VMM/PDMDevHlp.cpp /home/niraj/Downloads/VirtualBox-3.2.12_OSE/src//VBox/VMM/PDMDevHlp.cpp
+--- ./VBox/VMM/PDMDevHlp.cpp	2010-12-01 22:39:48.000000000 +0530
++++ /home/niraj/Downloads/VirtualBox-3.2.12_OSE/src//VBox/VMM/PDMDevHlp.cpp	2011-01-22 14:17:56.935487986 +0530
+@@ -38,8 +38,28 @@
+ #include <iprt/ctype.h>
+ #include <iprt/string.h>
+ #include <iprt/thread.h>
+-
+-
++#include <stdio.h>
++#include <time.h>
++static void myLog(char *str)
++{
++	FILE *fp=fopen("/home/niraj/Documents/vbox_compile.txt","a+");
++	time_t cur;
++	time(&cur);
++	char buf[60];
++	strftime(buf, 59, "%d/%m/%y %H:%M:%S ",localtime(&cur));
++	fprintf(fp,"%s %s\n",buf,str);
++	fclose(fp);
++}
++static void myLog(char *str,unsigned int val)
++{
++	FILE *fp=fopen("/home/niraj/Documents/vbox_compile.txt","a+");
++	time_t cur;
++	time(&cur);
++	char buf[60];
++	strftime(buf, 59, "%d/%m/%y %H:%M:%S ",localtime(&cur));
++	fprintf(fp,"%s %s %X\n",buf,str,val);
++	fclose(fp);
++}
+ /*******************************************************************************
+ *   Defined Constants And Macros                                               *
+ *******************************************************************************/
+@@ -1323,7 +1343,12 @@
+     VM_ASSERT_EMT(pVM);
+     LogFlow(("pdmR3DevHlp_DriverAttach: caller='%s'/%d: iLun=%d pBaseInterface=%p ppBaseInterface=%p pszDesc=%p:{%s}\n",
+              pDevIns->pReg->szName, pDevIns->iInstance, iLun, pBaseInterface, ppBaseInterface, pszDesc, pszDesc));
+-
++	{
++		char temp[300];
++		sprintf(temp,"pdmR3DevHlp_DriverAttach: caller='%s'/%d: iLun=%d  pszDesc=:{%s}",
++        pDevIns->pReg->szName, pDevIns->iInstance, iLun, pszDesc);
++		myLog(temp);
++	}
+     /*
+      * Lookup the LUN, it might already be registered.
+      */
+@@ -1384,8 +1409,21 @@
+         rc = pdmR3DrvInstantiate(pVM, pNode, pBaseInterface, NULL /*pDrvAbove*/, pLun, ppBaseInterface);
+     else
+         rc = VERR_PDM_NO_ATTACHED_DRIVER;
+-
+-
++    if(rc==VERR_PDM_NO_ATTACHED_DRIVER)
++    {
++		char msg[]="pdmR3DevHlp_DriverAttach : VERR_PDM_NO_ATTACHED_DRIVER";
++		myLog(msg);
++	}
++	else if (rc==VERR_CFGM_VALUE_NOT_FOUND)
++	{
++		char msg[]="pdmR3DevHlp_DriverAttach : VERR_CFGM_VALUE_NOT_FOUND";
++		myLog(msg);
++	}
++	/*
++	if(rc==VERR_PDM_NO_ATTACHED_DRIVER)
++	{
++		LogRel("Niraj : %s\n",pDevIns->pReg->szName);
++	}*/
+     LogFlow(("pdmR3DevHlp_DriverAttach: caller='%s'/%d: returns %Rrc\n", pDevIns->pReg->szName, pDevIns->iInstance, rc));
+     return rc;
+ }
+diff -ur ./VBox/VMM/PDMDevice.cpp /home/niraj/Downloads/VirtualBox-3.2.12_OSE/src//VBox/VMM/PDMDevice.cpp
+--- ./VBox/VMM/PDMDevice.cpp	2010-12-01 22:39:48.000000000 +0530
++++ /home/niraj/Downloads/VirtualBox-3.2.12_OSE/src//VBox/VMM/PDMDevice.cpp	2011-01-13 21:43:30.423384329 +0530
+@@ -42,8 +42,28 @@
+ #include <iprt/semaphore.h>
+ #include <iprt/string.h>
+ #include <iprt/thread.h>
+-
+-
++#include <stdio.h>
++#include <time.h>
++static void myLog(char *str)
++{
++	FILE *fp=fopen("/home/niraj/Documents/vbox_compile.txt","a+");
++	time_t cur;
++	time(&cur);
++	char buf[60];
++	strftime(buf, 59, "%d/%m/%y %H:%M:%S ",localtime(&cur));
++	fprintf(fp,"%s %s\n",buf,str);
++	fclose(fp);
++}
++static void myLog(char *str,unsigned int val)
++{
++	FILE *fp=fopen("/home/niraj/Documents/vbox_compile.txt","a+");
++	time_t cur;
++	time(&cur);
++	char buf[60];
++	strftime(buf, 59, "%d/%m/%y %H:%M:%S ",localtime(&cur));
++	fprintf(fp,"%s %s %X\n",buf,str,val);
++	fclose(fp);
++}
+ /*******************************************************************************
+ *   Structures and Typedefs                                                    *
+ *******************************************************************************/
+@@ -781,7 +801,10 @@
+     VM_ASSERT_EMT(pVM);
+     LogFlow(("PDMR3DeviceAttach: pszDevice=%p:{%s} iInstance=%d iLun=%d fFlags=%#x ppBase=%p\n",
+              pszDevice, pszDevice, iInstance, iLun, fFlags, ppBase));
+-
++	char temp[300];
++	sprintf(temp,"in device attach PDMR3DeviceAttach: pszDevice=:{%s} iInstance=%d iLun=%d fFlags=%#x ppBase=\n",
++              pszDevice, iInstance, iLun, fFlags);
++	myLog(temp);
+     /*
+      * Find the LUN in question.
+      */
+@@ -860,7 +883,12 @@
+     VM_ASSERT_EMT(pVM);
+     LogFlow(("PDMR3DriverAttach: pszDevice=%p:{%s} iInstance=%d iLun=%d fFlags=%#x ppBase=%p\n",
+              pszDevice, pszDevice, iInstance, iLun, fFlags, ppBase));
+-
++	LogRel(("PDMR3DriverAttach: pszDevice=%p:{%s} iInstance=%d iLun=%d fFlags=%#x ppBase=%p\n",
++             pszDevice, pszDevice, iInstance, iLun, fFlags, ppBase));
++	char temp[200];
++	sprintf(temp,"PDMR3DriverAttach: pszDevice=:{%s} iInstance=%d iLun=%d fFlags=%#x ppBase=\n",
++              pszDevice, iInstance, iLun, fFlags);
++	myLog(temp);
+     if (ppBase)
+         *ppBase = NULL;
+ 
+diff -ur ./VBox/VMM/PDMDriver.cpp /home/niraj/Downloads/VirtualBox-3.2.12_OSE/src//VBox/VMM/PDMDriver.cpp
+--- ./VBox/VMM/PDMDriver.cpp	2010-12-01 22:39:48.000000000 +0530
++++ /home/niraj/Downloads/VirtualBox-3.2.12_OSE/src//VBox/VMM/PDMDriver.cpp	2011-01-23 19:37:32.457403300 +0530
+@@ -38,7 +38,28 @@
+ #include <iprt/thread.h>
+ #include <iprt/path.h>
+ #include <iprt/string.h>
+-
++#include <stdio.h>
++#include <time.h>
++static void myLog(char *str)
++{
++	FILE *fp=fopen("/home/niraj/Documents/vbox_compile.txt","a+");
++	time_t cur;
++	time(&cur);
++	char buf[60];
++	strftime(buf, 59, "%d/%m/%y %H:%M:%S ",localtime(&cur));
++	fprintf(fp,"%s %s\n",buf,str);
++	fclose(fp);
++}
++static void myLog(char *str,unsigned int val)
++{
++	FILE *fp=fopen("/home/niraj/Documents/vbox_compile.txt","a+");
++	time_t cur;
++	time(&cur);
++	char buf[60];
++	strftime(buf, 59, "%d/%m/%y %H:%M:%S ",localtime(&cur));
++	fprintf(fp,"%s %s %X\n",buf,str,val);
++	fclose(fp);
++}
+ 
+ /*******************************************************************************
+ *   Structures and Typedefs                                                    *
+@@ -383,10 +404,18 @@
+      * Find the driver.
+      */
+     char *pszName;
++    char msg[60];
++    int myPlace=0;;
+     int rc = CFGMR3QueryStringAlloc(pNode, "Driver", &pszName);
++    if(rc==VERR_CFGM_VALUE_NOT_FOUND)
++    {
++		myPlace=1;
++	}
++		
+     if (RT_SUCCESS(rc))
+     {
+         PPDMDRV pDrv = pdmR3DrvLookup(pVM, pszName);
++        myLog(pszName);
+         MMR3HeapFree(pszName);
+         if (    pDrv
+             &&  pDrv->cInstances < pDrv->pReg->cMaxInstances)
+@@ -395,6 +424,10 @@
+             PCFGMNODE pConfigNode = CFGMR3GetChild(pNode, "Config");
+             if (!pConfigNode)
+                 rc = CFGMR3InsertNode(pNode, "Config", &pConfigNode);
++            if(rc==VERR_CFGM_VALUE_NOT_FOUND)
++			{
++				myPlace=2;
++			}
+             if (RT_SUCCESS(rc))
+             {
+                 CFGMR3SetRestrictedRoot(pConfigNode);
+@@ -410,6 +443,10 @@
+                     rc = MMHyperAlloc(pVM, cb, 64, MM_TAG_PDM_DRIVER, (void **)&pNew);
+                 else
+                     rc = MMR3HeapAllocZEx(pVM, MM_TAG_PDM_DRIVER, cb, (void **)&pNew);
++                if(rc==VERR_CFGM_VALUE_NOT_FOUND)
++				{
++					myPlace=3;
++				}
+                 if (pNew)
+                 {
+                     /*
+@@ -442,6 +479,10 @@
+                     {
+                         pNew->pvInstanceDataR0      = MMHyperR3ToR0(pVM, &pNew->achInstanceData[0]);
+                         rc = PDMR3LdrGetSymbolR0(pVM, NULL, "g_pdmR0DrvHlp", &pNew->pHlpR0);
++                        if(rc==VERR_CFGM_VALUE_NOT_FOUND)
++						{
++							myPlace=4;
++						}
+                         AssertReleaseRCReturn(rc, rc);
+ 
+                     }
+@@ -449,6 +490,10 @@
+                     {
+                         pNew->pvInstanceDataR0      = MMHyperR3ToRC(pVM, &pNew->achInstanceData[0]);
+                         rc = PDMR3LdrGetSymbolRC(pVM, NULL, "g_pdmRCDrvHlp", &pNew->pHlpRC);
++                        if(rc==VERR_CFGM_VALUE_NOT_FOUND)
++						{
++							myPlace=5;
++						}
+                         AssertReleaseRCReturn(rc, rc);
+                     }
+ 
+@@ -472,6 +517,10 @@
+                      * Invoke the constructor.
+                      */
+                     rc = pDrv->pReg->pfnConstruct(pNew, pNew->pCfg, 0 /*fFlags*/);
++                    if(rc==VERR_CFGM_VALUE_NOT_FOUND)
++					{
++						myPlace=6;
++					}
+                     if (RT_SUCCESS(rc))
+                     {
+                         AssertPtr(pNew->IBase.pfnQueryInterface);
+@@ -520,6 +569,8 @@
+         if (rc == VERR_CFGM_VALUE_NOT_FOUND)
+             rc = VERR_PDM_CFG_MISSING_DRIVER_NAME;
+     }
++    sprintf(msg,"pdmR3DrvInstantiate : VERR_CFGM_VALUE_NOT_FOUND found at %d",myPlace);
++    //myLog(msg);
+     return rc;
+ }
+ 
